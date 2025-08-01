@@ -1,8 +1,9 @@
 import pytest
-from datetime import datetime
+from datetime import datetime, timedelta
 from schedule import Customer, Schedule
 from communication import SmsSender, MailSender
 from booking_scheduler import BookingScheduler
+from test_communication import TestableSmsSender
 
 CAPACITY_PER_HOUR = 3
 UNDER_CAPACITY = 1
@@ -42,11 +43,32 @@ def test_시간대별_인원제한이_있다_같은_시간대에_Capacity_초과
         new_schedule = Schedule(ON_THE_HOUR, UNDER_CAPACITY, CUSTOMER)
         booking_scheduler.add_schedule(new_schedule)
 
-def test_시간대별_인원제한이_있다_같은_시간대가_다르면_Capacity_차있어도_스케쥴_추가_성공():
-    pass
+def test_시간대별_인원제한이_있다_같은_시간대가_다르면_Capacity_차있어도_스케쥴_추가_성공(booking_scheduler):
+    # arrange
+    schedule = Schedule(ON_THE_HOUR, CAPACITY_PER_HOUR, CUSTOMER)
+    booking_scheduler.add_schedule(schedule)
 
-def test_예약완료시_SMS는_무조건_발송():
-    pass
+    # act
+    different_hour = ON_THE_HOUR + timedelta(hours=1)
+    new_schedule = Schedule(different_hour, UNDER_CAPACITY, CUSTOMER)
+    booking_scheduler.add_schedule(new_schedule)
+
+    # assert
+    assert booking_scheduler.has_schedule(schedule)
+    assert booking_scheduler.has_schedule(new_schedule)
+
+# Test를 할 때마다 SMS를 실제로 보내면 비용이 발생 -> Test Double 필요
+def test_예약완료시_SMS는_무조건_발송(booking_scheduler):
+    # arrange
+    testable_sms_sender = TestableSmsSender()
+    booking_scheduler.set_sms_sender(testable_sms_sender)
+    schedule = Schedule(ON_THE_HOUR, UNDER_CAPACITY, CUSTOMER)
+
+    # act
+    booking_scheduler.add_schedule(schedule)
+
+    # assert
+    assert testable_sms_sender.send_called
 
 def test_이메일이_없는_경우에는_이메일_미발송():
     pass
